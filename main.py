@@ -16,12 +16,12 @@ WIDTH = 20
 HEIGHT = 20
 
 # Margin b/w each cell
-MARGIN = 2
+MARGIN = 0
 
 # Grid size row x col
-GRID_SIZE = 10
+GRID_SIZE = 19
 
-MINES = 10
+MINES = 30
 
 grid = np.array([[0 for x in range(0, GRID_SIZE)] for y in range(0, GRID_SIZE)])
 hint = np.array([[0 for x in range(0, GRID_SIZE)] for y in range(0, GRID_SIZE)])
@@ -51,16 +51,23 @@ FLAGGED = 2
 MINE = 3
 COV_MINE = 4
 FLAG_MINE = 5
+RED_MINE = 6
+CROSS_MINE = 7
 
 C = pygame.image.load('sprites/block.png').convert()
 UC = pygame.image.load('sprites/empty.png').convert()
 F = pygame.image.load('sprites/flagged.png').convert()
 M = pygame.image.load('sprites/mine.png').convert()
+RM = pygame.image.load('sprites/red_mine.png').convert()
+CM = pygame.image.load('sprites/crossed_mine.png')
 
 block = pygame.transform.scale(C, (WIDTH, HEIGHT))
 empty = pygame.transform.scale(UC, (WIDTH, HEIGHT))
 flagged = pygame.transform.scale(F, (WIDTH, HEIGHT))
 mine = pygame.transform.scale(M, (WIDTH, HEIGHT))
+red_mine = pygame.transform.scale(RM, (WIDTH, HEIGHT))
+cross_mine = pygame.transform.scale(CM, (WIDTH, HEIGHT))
+
 
 for i in range(0, MINES+1):
     grid[rd.randint(0, GRID_SIZE-1), rd.randint(0, GRID_SIZE-1)] = COV_MINE
@@ -119,49 +126,49 @@ def check_adj_cells(row, col):
 def clear_adj_cells(row, col):
    #Check South
     if isValid(row+1, col):
-        if grid[row+1, col] != COV_MINE:
+        if grid[row+1, col] != COV_MINE and grid[row+1, col] != FLAGGED and grid[row+1, col] != FLAG_MINE:
             grid[row+1, col] = UNCOVERED
             
     
     #Check North
     if isValid(row-1, col):
-        if grid[row-1, col] != COV_MINE:
+        if grid[row-1, col] != COV_MINE and grid[row-1, col] != FLAGGED and grid[row-1, col] != FLAG_MINE:
             grid[row-1, col] = UNCOVERED
             
     #Check West
     if isValid(row, col-1):
-        if grid[row, col-1] != COV_MINE:
+        if grid[row, col-1] != COV_MINE and grid[row, col-1] != FLAGGED and grid[row, col-1] != FLAG_MINE:
             grid[row, col-1] = UNCOVERED
            
     
     #Check East
     if isValid(row, col+1):
-        if grid[row, col+1] != COV_MINE:
+        if grid[row, col+1] != COV_MINE and grid[row, col+1] != FLAGGED and grid[row, col+1] != FLAG_MINE:
             grid[row, col+1] = UNCOVERED
          
 
 
     #Check NorthWest
     if isValid(row-1, col-1):
-        if grid[row-1, col-1] != COV_MINE:
+        if grid[row-1, col-1] != COV_MINE and grid[row-1, col-1] != FLAGGED and grid[row-1, col-1] != FLAG_MINE:
             grid[row-1, col-1] = UNCOVERED
         
 
     #Check NorthEast
     if isValid(row-1, col+1):
-        if grid[row-1, col+1] != COV_MINE:
+        if grid[row-1, col+1] != COV_MINE and grid[row-1, col+1] != FLAGGED and grid[row-1, col+1] != FLAG_MINE:
             grid[row-1, col+1] = UNCOVERED
            
 
     #Check SouthEast
     if isValid(row+1, col+1):
-        if grid[row+1, col+1] != COV_MINE:
+        if grid[row+1, col+1] != COV_MINE and grid[row+1, col+1] != FLAGGED and grid[row+1, col+1] != FLAG_MINE:
             grid[row+1, col+1] = UNCOVERED
            
 
     #Check SouthWest
     if isValid(row+1, col-1):
-        if grid[row+1, col-1] != COV_MINE:
+        if grid[row+1, col-1] != COV_MINE and grid[row+1, col-1] != FLAGGED and grid[row+1, col-1] != FLAG_MINE:
             grid[row+1, col-1] = UNCOVERED
              
 
@@ -195,12 +202,24 @@ def draw_grid():
             if grid[row, col] == MINE:
                 screen.blit(mine, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
 
+            if grid[row, col] == RED_MINE:
+                screen.blit(red_mine, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
+            
+            if grid[row, col] == CROSS_MINE:
+                screen.blit(cross_mine, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
+
+
+            
+
 
 def show_game():
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
             if grid[row, col] == COV_MINE:
                 grid[row, col] = MINE
+            if grid[row, col] == FLAGGED:
+                grid[row, col] = CROSS_MINE
+
 
 # Main loop
 running = True
@@ -225,8 +244,8 @@ while running:
             # Click covered mine
             elif grid[row, col] == COV_MINE:
                 if event.button == 1:
-                    grid[row, col] = MINE
                     show_game()
+                    grid[row, col] = RED_MINE
                     print('YOU LOSE')
                 elif event.button == 3:
                     grid[row, col] = FLAG_MINE
@@ -247,7 +266,6 @@ while running:
     # Set background to black
     screen.fill(BLACK)
         
-
     # Draw grid
     draw_grid()        
 
