@@ -1,34 +1,32 @@
 import numpy as np
 import pygame
 import random as rd
+import os
 from pygame import *
 
 # Colors
-BLACK = (0, 0, 0)
-WHITE = (200, 200, 200)
-GRAY = (150, 150, 150)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
+BLACK = Color(0, 0, 0)
+WHITE = Color(200, 200, 200)
+GRAY = Color(150, 150, 150)
+RED = Color(255, 100, 0, 50)
+BLUE = Color(0, 0, 255, 50)
+      
+# ---------- LOGIC ---------------------
+# Initialize pygame
+pygame.init()
 
 # --------- GRID --------------------
 # Width and Height of each cell
-WIDTH = 20
-HEIGHT = 20
+WIDTH = 30
+HEIGHT = 30
 
 # Margin b/w each cell
 MARGIN = 0
 
 # Grid size row x col
-GRID_SIZE = 19
+GRID_SIZE = 10
 
-MINES = 30
-
-grid = np.array([[0 for x in range(0, GRID_SIZE)] for y in range(0, GRID_SIZE)])
-hint = np.array([[0 for x in range(0, GRID_SIZE)] for y in range(0, GRID_SIZE)])
-
-# ---------- LOGIC ---------------------
-# Initialize pygame
-pygame.init()
+MINES = 10
 
 # Create display
 SCRN_W = ((GRID_SIZE + 1) * MARGIN) + (GRID_SIZE * WIDTH)
@@ -43,17 +41,8 @@ pygame.display.set_icon(icon)
 # Font Stuff 
 font = pygame.font.Font('font/pixelfont.ttf', 15)
 
-# Tile states and sprites
-COVERED = 0
-UNCOVERED = 1
-FLAGGED = 2
 
-MINE = 3
-COV_MINE = 4
-FLAG_MINE = 5
-RED_MINE = 6
-CROSS_MINE = 7
-
+# Loading sprites
 C = pygame.image.load('sprites/block.png').convert()
 UC = pygame.image.load('sprites/empty.png').convert()
 F = pygame.image.load('sprites/flagged.png').convert()
@@ -61,6 +50,7 @@ M = pygame.image.load('sprites/mine.png').convert()
 RM = pygame.image.load('sprites/red_mine.png').convert()
 CM = pygame.image.load('sprites/crossed_mine.png')
 
+# Scaling sprites
 block = pygame.transform.scale(C, (WIDTH, HEIGHT))
 empty = pygame.transform.scale(UC, (WIDTH, HEIGHT))
 flagged = pygame.transform.scale(F, (WIDTH, HEIGHT))
@@ -68,9 +58,58 @@ mine = pygame.transform.scale(M, (WIDTH, HEIGHT))
 red_mine = pygame.transform.scale(RM, (WIDTH, HEIGHT))
 cross_mine = pygame.transform.scale(CM, (WIDTH, HEIGHT))
 
+# Load the number sprites
+def load_numbers(path_to_directory):
+    """Load all images from subdirectories and return them as a dict."""
+    images = {}
 
-for i in range(0, MINES+1):
-    grid[rd.randint(0, GRID_SIZE-1), rd.randint(0, GRID_SIZE-1)] = COV_MINE
+    for dirpath, dirnames, filenames in os.walk(path_to_directory):
+        for name in filenames:
+            if name.endswith('.png'):
+                key = name[0]
+                img = pygame.image.load(os.path.join(dirpath, name)).convert()
+                new_img = pygame.transform.scale(img, (WIDTH, HEIGHT))
+                images[key] = new_img    
+    return images
+
+numbers = load_numbers('sprites/numbers')
+
+class Tile():
+    def __init__(self):
+        self.mine = False
+        self.covered = True
+        self.flagged = False
+        self.hint = 0
+        self.image = block
+
+        
+    def clicked(self, click, row=None, col=None):
+
+        if click == 1:
+            if self.covered and not self.mine and not self.flagged:
+                self.covered = False 
+                if self.hint > 0:
+                    self.image = numbers[str(self.hint)]
+                else:
+                    clear_adj_cells(row, col)
+                    self.image = empty
+
+
+            if self.covered and self.mine and not self.flagged:
+                loss()
+                self.image = red_mine            
+
+        if click == 3:
+            if self.covered and not self.flagged:
+                self.flagged = True
+                self.image = flagged
+
+            elif self.flagged:
+                self.flagged = False
+                self.image = block
+        
+grid = np.array([[Tile() for x in range(0, GRID_SIZE)] for y in range(0, GRID_SIZE)])
+
 
 # Check if a cell is valid
 def isValid(row, col):
@@ -84,192 +123,165 @@ def check_adj_cells(row, col):
 
     #Check South
     if isValid(row+1, col):
-        if grid[row+1, col] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row+1, col].mine and grid[row+1, col].covered:
+            grid[row, col].hint += 1
     
     #Check North
     if isValid(row-1, col):
-        if grid[row-1, col] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row-1, col].mine and grid[row-1, col].covered:
+            grid[row, col].hint += 1
 
     #Check West
     if isValid(row, col-1):
-        if grid[row, col-1] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row, col-1].mine and grid[row, col-1].covered:
+            grid[row, col].hint += 1
     
     #Check East
     if isValid(row, col+1):
-        if grid[row, col+1] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row, col+1].mine and grid[row, col+1].covered:
+            grid[row, col].hint += 1
 
     #Check NorthWest
     if isValid(row-1, col-1):
-        if grid[row-1, col-1] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row-1, col-1].mine and grid[row-1, col-1].covered:
+            grid[row, col].hint += 1
 
     #Check NorthEast
     if isValid(row-1, col+1):
-        if grid[row-1, col+1] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row-1, col+1].mine and grid[row-1, col+1].covered:
+            grid[row, col].hint += 1
 
     #Check SouthEast
     if isValid(row+1, col+1):
-        if grid[row+1, col+1] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row+1, col+1].mine and grid[row+1, col+1].covered:
+            grid[row, col].hint += 1
 
     #Check SouthWest
     if isValid(row+1, col-1):
-        if grid[row+1, col-1] == COV_MINE:
-            hint[row, col] += 1
+        if grid[row+1, col-1].mine and grid[row+1, col-1].covered:
+            grid[row, col].hint += 1
 
-# Clear adjecent cells
 def clear_adj_cells(row, col):
-   #Check South
+    #Check South
     if isValid(row+1, col):
-        if grid[row+1, col] != COV_MINE and grid[row+1, col] != FLAGGED and grid[row+1, col] != FLAG_MINE:
-            grid[row+1, col] = UNCOVERED
-            
+       grid[row+1, col].clicked(1, row+1, col)
     
     #Check North
     if isValid(row-1, col):
-        if grid[row-1, col] != COV_MINE and grid[row-1, col] != FLAGGED and grid[row-1, col] != FLAG_MINE:
-            grid[row-1, col] = UNCOVERED
-            
+        grid[row-1, col].clicked(1, row-1, col)
+
     #Check West
     if isValid(row, col-1):
-        if grid[row, col-1] != COV_MINE and grid[row, col-1] != FLAGGED and grid[row, col-1] != FLAG_MINE:
-            grid[row, col-1] = UNCOVERED
-           
+        grid[row, col-1].clicked(1, row, col-1)
     
     #Check East
     if isValid(row, col+1):
-        if grid[row, col+1] != COV_MINE and grid[row, col+1] != FLAGGED and grid[row, col+1] != FLAG_MINE:
-            grid[row, col+1] = UNCOVERED
-         
-
+        grid[row, col+1].clicked(1, row, col+1)
 
     #Check NorthWest
     if isValid(row-1, col-1):
-        if grid[row-1, col-1] != COV_MINE and grid[row-1, col-1] != FLAGGED and grid[row-1, col-1] != FLAG_MINE:
-            grid[row-1, col-1] = UNCOVERED
-        
+        grid[row-1, col-1].clicked(1, row-1, col-1)
 
     #Check NorthEast
     if isValid(row-1, col+1):
-        if grid[row-1, col+1] != COV_MINE and grid[row-1, col+1] != FLAGGED and grid[row-1, col+1] != FLAG_MINE:
-            grid[row-1, col+1] = UNCOVERED
-           
+        grid[row-1, col+1].clicked(1, row-1, col+1)
 
     #Check SouthEast
     if isValid(row+1, col+1):
-        if grid[row+1, col+1] != COV_MINE and grid[row+1, col+1] != FLAGGED and grid[row+1, col+1] != FLAG_MINE:
-            grid[row+1, col+1] = UNCOVERED
-           
+        grid[row+1, col+1].clicked(1, row+1, col+1)
 
     #Check SouthWest
     if isValid(row+1, col-1):
-        if grid[row+1, col-1] != COV_MINE and grid[row+1, col-1] != FLAGGED and grid[row+1, col-1] != FLAG_MINE:
-            grid[row+1, col-1] = UNCOVERED
-             
-
-# Create Hints
-for row in range(0, GRID_SIZE):
-    for col in range(0, GRID_SIZE):
-        check_adj_cells(row, col)
-
+        grid[row+1, col-1].clicked(1, row+1, col-1)
 
 # Draw grid
-def draw_grid():
+def draw_grid(): 
     for row in range(0, GRID_SIZE):
         for col in range(0, GRID_SIZE):
-
-            if grid[row, col] == COVERED or grid[row, col] == COV_MINE: 
-                screen.blit(block, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
-
-            if grid[row, col] == UNCOVERED:   
-                screen.blit(empty, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
-
-                num = hint[row, col]
-                if num == 0:
-                    clear_adj_cells(row, col)
-                else:
-                    cell_hint = font.render(str(num), True, BLUE)
-                    screen.blit(cell_hint, ((WIDTH + MARGIN) * col + MARGIN + 5, (HEIGHT + MARGIN) * row + MARGIN))
-
-            if grid[row, col] == FLAGGED or grid[row, col] == FLAG_MINE:
-                screen.blit(flagged, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
-
-            if grid[row, col] == MINE:
-                screen.blit(mine, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
-
-            if grid[row, col] == RED_MINE:
-                screen.blit(red_mine, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
+            screen.blit(grid[row, col].image, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
             
-            if grid[row, col] == CROSS_MINE:
-                screen.blit(cross_mine, ((WIDTH + MARGIN) * col + MARGIN, (HEIGHT + MARGIN) * row + MARGIN))
+def create_game():
+    for i in range(0, 11):
+        x = rd.randint(0, GRID_SIZE-1)
+        y = rd.randint(0, GRID_SIZE-1)
 
+        grid[x, y].mine = True
+        # grid[x, y].image = mine
 
-            
+    for row in range(0, GRID_SIZE):
+        for col in range(0, GRID_SIZE):
+            check_adj_cells(row, col) 
 
+win = False
+lost = False
 
-def show_game():
+def check_win():
     for row in range(GRID_SIZE):
         for col in range(GRID_SIZE):
-            if grid[row, col] == COV_MINE:
-                grid[row, col] = MINE
-            if grid[row, col] == FLAGGED:
-                grid[row, col] = CROSS_MINE
+            if grid[row, col].covered and not grid[row, col].mine:
+                return False
+    return True     
 
+def won():
+    for row in range(GRID_SIZE):
+        for col in range(GRID_SIZE):
+            if grid[row, col].mine and not grid[row, col].flagged:
+                grid[row, col].flagged = True
+                grid[row, col].image = flagged
+
+    pygame.draw.rect(screen, BLUE, Rect(100, 100, 105, 50))
+    win_text = font.render("YOU WIN", True, WHITE)
+    screen.blit(win_text, (110, 110))
+
+def loss():
+    for row in range(GRID_SIZE):
+        for col in range(GRID_SIZE):
+            if grid[row, col].mine and grid[row, col].covered:
+                grid[row, col].mine = True
+                grid[row, col].image = mine
+            if grid[row, col].covered and not grid[row, col].mine and grid[row, col].flagged:
+                grid[row, col].image = cross_mine
+                grid[row, col].mine = True
+
+    pygame.draw.rect(screen, RED, Rect(100, 100, 105, 50))
+    lose_text = font.render("YOU LOSE", True, WHITE)
+    screen.blit(lose_text, (110, 110))
+
+
+create_game()
 
 # Main loop
-running = True
-while running:
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
+def game():
+    running = True
+    while running:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
 
-        # Check for click
-        elif event.type == pygame.MOUSEBUTTONDOWN: 
-            pos = pygame.mouse.get_pos()
-            col = pos[0] // (WIDTH + MARGIN)
-            row = pos[1] // (HEIGHT + MARGIN)
+            # Check for click
+            elif event.type == pygame.MOUSEBUTTONDOWN: 
+                pos = pygame.mouse.get_pos()
+                col = pos[0] // (WIDTH + MARGIN)
+                row = pos[1] // (HEIGHT + MARGIN)
 
-            # CLick covered block
-            if grid[row, col] == COVERED:
                 if event.button == 1:
-                    grid[row, col] = UNCOVERED
+                    grid[row, col].clicked(1, row, col)
                 elif event.button == 3:
-                    grid[row, col] = FLAGGED
-
-            # Click covered mine
-            elif grid[row, col] == COV_MINE:
-                if event.button == 1:
-                    show_game()
-                    grid[row, col] = RED_MINE
-                    print('YOU LOSE')
-                elif event.button == 3:
-                    grid[row, col] = FLAG_MINE
-
-            # Click flagged block
-            elif grid[row, col] == FLAGGED:
-                if event.button == 3:
-                    grid[row, col] = COVERED
-
-            # CLick flagged mine
-            elif grid[row, col] == FLAG_MINE:
-                if event.button == 3:
-                    grid[row, col] = COV_MINE
-
-        
+                    grid[row, col].clicked(3)
 
 
-    # Set background to black
-    screen.fill(BLACK)
-        
-    # Draw grid
-    draw_grid()        
+        # Set background to black
+        screen.fill(BLACK)
+            
+        # Draw grid
+        draw_grid() 
 
-    # Show Screen
-    pygame.display.flip()
+        if check_win():
+            won()
 
+        pygame.display.flip()
+
+
+game()
 pygame.quit()
+    
